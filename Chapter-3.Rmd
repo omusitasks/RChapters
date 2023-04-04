@@ -1,0 +1,927 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+# Classification: Basic Concepts and Techniques
+
+## 3.1 The Zoo Dataset
+```{r}
+# This line imports the Zoo data from the mlbench package
+data(Zoo, package="mlbench")
+# This line displays the first 6 rows of the Zoo data
+head(Zoo)
+```
+
+
+```{r}
+# Load the tidyverse library
+library(tidyverse)
+
+# Create a tibble from the Zoo dataframe
+as_tibble(Zoo, rownames = "animal")
+```
+
+
+```{r}
+#Modifies the Zoo data frame so that logical values become factors with levels TRUE and FALSE and character values become factors
+Zoo <- Zoo %>%
+  modify_if(is.logical, factor, levels = c(TRUE, FALSE)) %>%
+  modify_if(is.character, factor)
+
+#Shows a summary of the modified Zoo data frame
+summary(Zoo)
+```
+
+
+## 3.2 Decision Trees
+
+```{r}
+# Load the rpart library
+library(rpart)
+```
+
+
+```{r}
+# Create a tree_default object using the rpart function from the Zoo dataset
+tree_default <- Zoo %>% rpart(type ~ ., data = .)
+
+# Print the tree_default object
+tree_default
+```
+
+
+```{r}
+# Load the rpart.plot library
+library(rpart.plot)
+
+# Plot the tree_default object using the rpart.plot library, with extra parameters set to 2
+rpart.plot(tree_default, extra = 2)
+```
+
+
+```{r}
+# Create a decision tree model, using the "type" column as the response variable and all other columns as the predictors
+tree_full <- Zoo %>%
+   # Use rpart to fit the decision tree model, with a minimum split of 2 and no cost complexity pruning
+  rpart(type ~., data = ., control = rpart.control(minsplit = 2, cp = 0))
+
+# Plot the tree with 7 colors for the boxes
+rpart.plot(tree_full, extra = 2, roundint=FALSE,
+  box.palette = list("Gy", "Gn", "Bu", "Bn", "Or", "Rd", "Pu"))
+```
+
+
+```{r}
+# Print the tree
+tree_full
+```
+
+
+```{r}
+# This line uses the 'predict' function to predict the classes of the 'Zoo' dataset, using the 'tree_default' model
+predict(tree_default, Zoo) %>% 
+
+# This line then takes the first 6 rows of the output
+head ()
+```
+
+
+```{r}
+# Generate a prediction of the class for each row of the Zoo dataset using the tree_default model
+pred <- predict(tree_default, Zoo, type="class")
+
+# View the first 6 rows of the prediction
+head(pred)
+```
+
+
+```{r}
+# Create a confusion table using the type and pred columns of the Zoo data frame
+confusion_table <- with(Zoo, table(type, pred))
+
+# Print the confusion table
+confusion_table
+```
+
+
+```{r}
+
+# Calculate the sum of the values in the diagonal of the confusion_table matrix
+# and assign it to the variable 'correct'
+correct <- confusion_table %>% diag() %>% sum
+
+#Print results
+correct
+```
+
+
+```{r}
+# Assign the result to the variable "error"
+error <- confusion_table %>% sum() - correct
+# Print results
+error
+```
+
+
+```{r}
+# Calculate the accuracy by dividing the number of correct classifications by the total number of predictions
+accuracy <- correct / (correct + error)
+
+# Print the accuracy
+accuracy
+```
+
+
+```{r}
+
+# Calculate accuracy of a prediction
+accuracy <- function(truth, prediction) {
+    # Create a contingency table
+    tbl <- table(truth, prediction)
+    # Sum the diagonal values and divide by the total sum
+    sum(diag(tbl))/sum(tbl)
+}
+
+# Calculate accuracy of the pred dataframe with the type column of Zoo 
+accuracy(Zoo %>% pull(type), pred)
+```
+
+
+```{r}
+
+# Calculate the accuracy of a classification decision tree by comparing the classification of the tree to the type column in the Zoo dataset
+accuracy(Zoo %>% pull(type), predict(tree_full, Zoo, type="class"))
+
+```
+
+
+```{r}
+
+# Load the caret library
+library(caret)
+
+# Create a confusion matrix using the predicted data and the type column from the Zoo data frame
+confusionMatrix(data = pred, reference = Zoo %>% pull(type))
+```
+
+
+```{r}
+# The line above creates a tibble (a type of data frame) containing information about a hypothetical animal. The tibble contains 15 variables, each of which is assigned a value of TRUE, FALSE, or NA.
+my_animal <- tibble(hair = TRUE, feathers = TRUE, eggs = FALSE,
+  milk = TRUE, airborne = TRUE, aquatic = FALSE, predator = TRUE,
+  toothed = TRUE, backbone = TRUE, breathes = TRUE, venomous = FALSE,
+  fins = FALSE, legs = 4, tail = TRUE, domestic = FALSE,
+  catsize = FALSE, type = NA)
+```
+
+
+```{r}
+# Create a new column with a logical vector
+my_animal <- my_animal %>%
+  # Modify the logical vector so that TRUE and FALSE are the levels
+  modify_if(is.logical, factor, levels = c(TRUE, FALSE))
+
+# Return the modified dataframe
+my_animal
+```
+
+
+```{r}
+
+# Call the predict() function, passing it the 'tree_default' object, the data 'my_animal' and the argument 'type', which is set to 'class'
+predict(tree_default , my_animal, type = "class")
+```
+
+
+## 3.3 Model Evaluation with Caret
+```{r}
+# Load the caret library
+library(caret)
+```
+
+
+```{r}
+
+# This sets the seed for the random number generator
+set.seed(2000)
+```
+
+
+```{r}
+# Split data into a training set (80% of data) and a test set (20% of data)
+inTrain <- createDataPartition(y = Zoo$type, p = .8, list = FALSE)
+
+# Create Zoo_train dataframe with 80% of data
+Zoo_train <- Zoo %>% slice(inTrain)
+
+# Create Zoo_test dataframe with 20% of data
+Zoo_test <- Zoo %>% slice(-inTrain)
+```
+
+
+```{r}
+# Fit a rpart model using 10-fold cross validation with a minimum split of 2
+fit <- Zoo_train %>%
+  train(type ~ .,  # dependent variable is type and independent variables are everything else
+    data = . , # use the Zoo_train dataset
+    method = "rpart", # using rpart method
+    control = rpart.control(minsplit = 2), # minimum split of 2
+    trControl = trainControl(method = "cv", number = 10), # 10-fold cross validation
+    tuneLength = 5) # tuneLength 5
+
+fit # print the fit object
+```
+
+
+```{r}
+
+# Plot the final model of the fit using a color palette composed of Gy, Gn, Bu, Bn, Or, Rd, and Pu
+rpart.plot(fit$finalModel, extra = 2,
+  box.palette = list("Gy", "Gn", "Bu", "Bn", "Or", "Rd", "Pu"))
+```
+
+
+```{r}
+# This line prints out the importance of each predictor variable
+varImp(fit)
+```
+
+
+```{r}
+#This creates a variable 'imp' that stores the variable importance from the fit variable
+imp <- varImp(fit, compete = FALSE)
+
+#This prints the variable 'imp'
+imp
+```
+
+
+```{r}
+#This code creates a ggplot graph with the data from the imp variable.
+ggplot(imp)
+```
+
+
+## 3.4 Testing: Confusion Matrix and Confidence Interval for Accuracy
+```{r}
+# Create a prediction on the test dataset
+pred <- predict(fit, newdata = Zoo_test)
+
+# Print the prediction
+pred
+```
+
+
+```{r}
+
+#This line creates a confusion matrix from a data set called 'pred' and a reference set called 'Zoo_test$type'
+confusionMatrix(data = pred, ref = Zoo_test$type)
+```
+
+
+
+## 3.5 Model Comparison
+```{r}
+# Create 10 folds using the type column of the Zoo_train dataset
+train_index <- createFolds(Zoo_train$type, k = 10)
+```
+
+
+```{r}
+# Train a rpart model using the Zoo_train data set
+# Dependent variable is 'type'
+# All other variables are independent
+# Use 10-fold cross-validation to select model
+# Use train_index as the indexOut values within the cross-validation 
+rpartFit <- Zoo_train %>% train(type ~ .,
+  data = .,
+  method = "rpart",
+  tuneLength = 10,
+  trControl = trainControl(method = "cv", indexOut = train_index)
+  )
+```
+
+
+```{r}
+
+# Use the Zoo_train dataset
+# Use all the columns for the independent variables (type)
+# Use the knn method for training
+# Preprocess the data by scaling
+# Create 10 different models for tuning
+# Create a cross validation (cv) type of train control, using the train_index as an index out
+knnFit <- Zoo_train %>% train(type ~ .,
+  data = .,
+  method = "knn",
+  preProcess = "scale",
+    tuneLength = 10,
+    trControl = trainControl(method = "cv", indexOut = train_index)
+  )
+```
+
+
+```{r}
+# Create a list of fit models
+resamps <- resamples(list(
+        CART = rpartFit,
+        kNearestNeighbors = knnFit
+        ))
+
+# Summarize the resamples
+summary(resamps)
+```
+
+
+```{r}
+
+# Load lattice library
+library(lattice)
+
+# Create a bwplot of resamps with a 3x1 layout
+bwplot(resamps, layout = c(3, 1))
+```
+
+
+```{r}
+#Calculate the differences of the values in the vector resamps
+difs <- diff(resamps)
+#Save the differences in the vector difs
+difs
+```
+
+
+```{r}
+# This line calculates summary statistics for the 'difs' dataframe
+summary(difs)
+```
+
+
+
+## 3.6 Feature Selection and Feature Preparation
+
+```{r}
+
+# Load the FSelector library
+library(FSelector)
+```
+
+
+```{r}
+# Get the chi-squared values for each feature in the Zoo_train dataset
+weights <- Zoo_train %>% chi.squared(type ~ ., data = .)
+
+# Convert to a tibble and name the first column "feature"
+weights <- weights %>% 
+  as_tibble(rownames = "feature")
+
+# Sort the features by highest to lowest importance
+weights <- weights %>% 
+  arrange(desc(attr_importance))
+
+# Print
+weights
+```
+
+
+```{r}
+# Create a ggplot object, using the data frame weights
+# Set the x-axis to attr_importance and the y-axis to the reordered feature 
+ggplot(weights, aes(x = attr_importance, y = reorder(feature, attr_importance))) +
+
+# Create a bar plot using the identity statistic
+geom_bar(stat = "identity") +
+
+# Label the x-axis
+xlab("Importance score") +
+
+# Label the y-axis
+ylab("Feature")
+```
+
+
+```{r}
+
+# Create a vector 'subset' that contains the top 5 values from the vector created above
+subset <- cutoff.k(weights %>% column_to_rownames("feature"), 5)
+
+# Print the vector 'subset'
+subset
+```
+
+
+```{r}
+
+# Create a simple formula object from the subset data frame, using the 'type' column 
+f <- as.simple.formula(subset, "type")
+
+# Display the formula object
+f
+```
+
+
+```{r}
+# Fit a regression tree model using the Zoo_train dataset
+m <- Zoo_train %>% 
+    rpart(f, data = .)
+
+# Plot the regression tree model
+rpart.plot(m, extra = 2, roundint = FALSE)
+```
+
+
+```{r}
+
+# Filter out the Zoo_train dataset
+Zoo_train %>% 
+
+# Calculate the gain ratio for each feature
+gain.ratio(type ~ ., data = .) %>%
+
+# Convert the output of the calculation to a tibble
+as_tibble(rownames = "feature") %>%
+
+# Arrange the output by descending attribute importance
+arrange(desc(attr_importance))
+```
+
+
+```{r}
+# Apply the cfs function to the Zoo_train dataset, with the response variable (type) and all columns (.) as predictors 
+Zoo_train %>% cfs(type ~ ., data = .)
+```
+
+
+```{r}
+
+#Create function to evaluate subset
+evaluator <- function(subset) {
+  
+  #Train model using rpart
+  model <- Zoo_train %>% train(as.simple.formula(subset, "type"),
+    data = .,
+    method = "rpart",
+    trControl = trainControl(method = "boot", number = 5),
+    tuneLength = 0)
+  
+  #Store accuracy of model
+  results <- model$resample$Accuracy
+  
+  #Print the features being evaluated
+  cat("Trying features:", paste(subset, collapse = " + "), "\n")
+  
+  #Calculate mean of results
+  m <- mean(results)
+  
+  #Print mean accuracy
+  cat("Accuracy:", round(m, 2), "\n\n")
+  
+  #Return mean accuracy
+  m
+}
+```
+
+
+```{r}
+# Remove the column "type" from the vector "features"
+features <- feature %>% setdiff("type")
+```
+
+
+```{r}
+#Train a decision tree on the Zoo_train dataset using the predictor variable "predator" and the independent variable "type"
+tree_predator <- Zoo_train %>% rpart(predator ~ type, data = .)
+
+# Plot the trained decision tree
+rpart.plot(tree_predator, extra = 2, roundint = FALSE)
+```
+
+
+```{r}
+
+# Create a new tibble from the class2ind function applied to the Zoo_train$type column
+Zoo_train_dummy <- as_tibble(class2ind(Zoo_train$type))%>% 
+
+# Mutate all columns to factor
+mutate_all(as.factor) %>% 
+
+# Add a new column with the values from Zoo_train$predator
+add_column(predator = Zoo_train$predator)
+
+# Print the new tibble
+Zoo_train_dummy
+```
+
+
+
+```{r}
+
+# Create an object "tree_predator" using the rpart function of the Zoo_train_dummy dataset
+# The response variable is "predator" and the predictor variables are all represented by the dot (.)
+# Set control parameters:
+# minsplit = 2, cp=0.01
+tree_predator <- Zoo_train_dummy %>% rpart(predator ~ ., data = .,
+  control = rpart.control(minsplit = 2, cp = 0.01))
+  
+# Plot the decision tree 
+rpart.plot(tree_predator, roundint = FALSE)
+```
+
+
+```{r}
+
+# Fit a decision tree to the 'Zoo_train' dataset using the 'predator' as the response variable and 'type' as the predictor variable
+fit <- Zoo_train %>% 
+  # Use the 'train' function from the 'caret' package
+  train(predator ~ type, data = ., 
+  # Use the 'rpart' method for fitting the decision tree
+  method = "rpart",
+  # Set the minimum number of observations required in a node to split to be 2
+  control = rpart.control(minsplit = 2),
+  # Set the cost complexity parameter 'cp' to be 0.01
+  tuneGrid = data.frame(cp = 0.01))
+# Fit the model
+fit
+```
+
+
+```{r}
+
+#Plot a decision tree using the rpart library
+rpart.plot(fit$finalModel, extra = 2)  #The extra argument adds inner nodes to the plot
+```
+
+## 3.7 Class Imbalance
+```{r}
+# Load the rpart and rpart.plot libraries
+library(rpart)
+library(rpart.plot)
+
+# Load the Zoo dataset from the mlbench package
+data(Zoo, package="mlbench")
+```
+
+
+```{r}
+# Create a ggplot object with the Zoo data set as the data source
+ggplot(Zoo, aes(y = type)) + 
+
+# Add a geom_bar layer to the ggplot object
+geom_bar()
+```
+
+
+```{r}
+
+# Create a new variable called "type" in the Zoo dataframe
+# Set the levels of the variable to "FALSE" and "TRUE"
+# Label the levels "nonreptile" and "reptile"
+# Filter only observations with type equal to "reptile"
+Zoo_reptile <- Zoo %>% 
+                 mutate(type = factor(Zoo$type == "reptile", levels = c(FALSE, TRUE), labels = c("nonreptile", "reptile")))
+```
+
+
+```{r}
+# This is a summary of the Zoo_reptile data frame which contains information on the reptile species in the zoo
+summary(Zoo_reptile)
+```
+
+
+```{r}
+# Create a ggplot object using the Zoo_reptile dataset 
+ggplot(Zoo_reptile, aes(y = type)) 
+
+# Add a geom_bar layer to the plot
++ geom_bar()
+```
+
+
+```{r}
+# Set the seed for reproducibility
+set.seed(1234)
+
+# Randomly divide the data into a training and testing set
+inTrain <- createDataPartition(y = Zoo_reptile$type, p = .5, list = FALSE)
+
+# Create the training set
+training_reptile <- Zoo_reptile %>% slice(inTrain)
+
+# Create the testing set
+testing_reptile <- Zoo_reptile %>% slice(-inTrain)
+```
+
+
+```{r}
+
+# Fit a decision tree model to the training data
+fit <- training_reptile %>% 
+  # Use the "train" function from the caret package 
+  train(type ~ ., 
+  # Specify the data used in the model
+  data = ., 
+  # Specify the method used
+  method = "rpart", 
+  # Use k-fold cross-validation to evaluate the model
+  trControl = trainControl(method = "cv"))
+```
+
+
+
+```{r}
+fit
+```
+
+
+```{r}
+
+# Plot the model created with rpart
+rpart.plot(fit$finalModel, extra = 2)
+```
+
+
+```{r}
+# Creates a confusion matrix for the data set, with "reptile" as the positive label
+confusionMatrix(data = predict(fit, testing_reptile), 
+  ref = testing_reptile$type, positive = "reptile")
+```
+
+
+```{r}
+
+# Set sampling library
+library(sampling)
+
+# Set seed for repeatability
+set.seed(1000)
+
+# Stratify by "type" with 50 observations from each
+id <- strata(training_reptile, stratanames = "type", size = c(50, 50), method = "srswr")
+
+# Slice the dataframe to only include the stratified observations
+training_reptile_balanced <- training_reptile %>% slice(id$ID_unit)
+
+# Check the table of the balanced dataframe
+table(training_reptile_balanced$type)
+```
+
+
+```{r}
+
+# Fit a classification tree using the rpart package using the "type" as the response variable, the training_reptile_balanced dataset as the data, and using a cross-validation method from the "trainControl" package
+fit <- training_reptile_balanced %>% train(type ~ .,
+  data = .,
+  method = "rpart",
+  trControl = trainControl(method = "cv"),
+  control = rpart.control(minsplit = 5))
+
+# Print the model
+fit
+```
+
+
+```{r}
+
+# Plot the final model of the fitted rpart object
+rpart.plot(fit$finalModel, extra = 2)
+```
+
+
+```{r}
+
+# Create a confusion matrix for the predictions of the fit model on the testing_reptile dataset
+# The reference data for the predictions is the actual value of the "type" column in the testing_reptile dataset
+# The positive value is "reptile"
+confusionMatrix(data = predict(fit, testing_reptile), ref = testing_reptile$type, positive = "reptile")
+```
+
+
+```{r}
+
+# Create a stratified sample with two strata, 'type' with 50 and 100 sizes 
+id <- strata(training_reptile, stratanames = "type", size = c(50, 100), method = "srswr")
+
+# Create a new dataframe with the balanced stratified sample
+training_reptile_balanced <- training_reptile %>% slice(id$ID_unit)
+
+# Check the balance of the new dataframe
+table(training_reptile_balanced$type)
+```
+
+
+```{r}
+
+# Fit a decision tree model using the training dataset
+fit <- training_reptile_balanced %>% train(type ~ .,
+  data = .,
+  method = "rpart",
+  trControl = trainControl(method = "cv"), 
+  control = rpart.control(minsplit = 5))
+  
+# Create confusion matrix with results from model applied to testing dataset
+confusionMatrix(data = predict(fit, testing_reptile),
+  ref = testing_reptile$type, positive = "reptile")
+```
+
+
+```{r}
+
+# Train a model using the rpart method, using 10 fold cross validation 
+# with a summary function of twoClassSummary, and a metric of ROC
+fit <- training_reptile %>% train(type ~ .,
+  data = .,
+  method = "rpart",
+  tuneLength = 10,
+  trControl = trainControl(method = "cv",
+    classProbs = TRUE,                 ## necessary to predict with type="prob"
+    summaryFunction=twoClassSummary),  ## necessary for ROC
+  metric = "ROC",
+  control = rpart.control(minsplit = 3))
+```
+
+
+```{r}
+fit
+```
+
+
+```{r}
+
+# Plot the final model from the "fit" object using the rpart.plot function,
+# with extra details set to 2
+rpart.plot(fit$finalModel, extra = 2)
+```
+
+
+```{r}
+
+# This creates a confusion matrix from the results of a prediction of the fit model on the testing_reptile data frame, with the reference values for comparison being the column "type" from the testing_reptile data frame. The positive label used is "reptile". 
+confusionMatrix(data = predict(fit, testing_reptile),
+  ref = testing_reptile$type, positive = "reptile")
+```
+
+
+```{r}
+
+# Create a variable called "prob" which is the result of the prediction of the fit model using the test dataset 
+prob <- predict(fit, testing_reptile, type = "prob")
+
+# Show the last 6 rows of the prob variable
+tail(prob)
+```
+
+
+```{r}
+
+# Assign the predicted value to pred, based on the probability of reptile being greater than 0.01
+pred <- as.factor(ifelse(prob[,"reptile"]>=0.01, "reptile", "nonreptile"))
+
+# Create a confusion matrix between the predicted values and the testing reptile type
+confusionMatrix(data = pred,
+  ref = testing_reptile$type, positive = "reptile")
+```
+
+
+```{r}
+# Load the pROC library
+library("pROC")
+```
+
+
+```{r}
+
+# Calculate the roc curve for the testing_reptile dataframe, using the reptile column of the 'prob' dataframe as the probability 
+roc_r <- roc(testing_reptile$type == "reptile", prob[,"reptile"])
+```
+
+
+```{r}
+# Print the roc results
+roc_r
+```
+
+
+```{r}
+
+# Plot a scatterplot of the two variables
+ggroc(r) +
+
+# Add a line to the plot with an intercept of 1 and a slope of 1, colored dark grey
+geom_abline(intercept = 1, slope = 1, color = "darkgrey")
+```
+
+
+```{r}
+# Create a matrix with 2 rows and 2 columns
+# 1st row: 0 and 1
+# 2nd row: 100 and 0
+cost <- matrix(c(
+  0,   1,
+  100, 0
+), byrow = TRUE, nrow = 2)
+
+# Print out the matrix
+cost
+```
+
+
+```{r}
+
+# Fit a decision tree model to the training_reptile dataset
+fit <- training_reptile %>% 
+  # Train the model using the type as the response variable and all other columns as the predictors
+  train(type ~ ., 
+    data = ., 
+    # Use the rpart algorithm
+    method = "rpart", 
+    # Use the cost function to measure the loss
+    parms = list(loss = cost),
+    # Use 10-fold cross-validation to evaluate the model
+    trControl = trainControl(method = "cv"))
+```
+
+
+```{r}
+fit
+```
+
+
+```{r}
+
+# Plot the final model of a rpart object
+rpart.plot(fit$finalModel, extra = 2)
+```
+
+
+```{r}
+# Create a confusion matrix using the predicted values of the model fit on the testing reptile dataset 
+# and the reference values of the testing reptile dataset
+confusionMatrix(data = predict(fit, testing_reptile),
+  # Set the reference values to the 'type' column in the testing reptile dataset
+  ref = testing_reptile$type, 
+  # Set the positive value to 'reptile'
+  positive = "reptile")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
