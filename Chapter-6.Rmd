@@ -1,0 +1,131 @@
+---
+title: "Neural Networks with R"
+name: 'ravan'
+course: 'Data Mining for Data Science and Analytics'
+date: '05/03/2023'
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+
+# Chapter 6: Association Analysis: Advanced Concepts
+
+## Install required packages
+```{r}
+
+# install mlbench package
+install.packages("mlbench")
+
+# install neuralnet package
+install.packages("neuralnet")
+
+# install keras package
+install.packages("keras")
+
+# install tensorflow package
+install.packages("tensorflow")
+
+```
+
+
+## Load required packages
+```{r}
+# load mlbench package which contain Zoo dataset
+library(mlbench)
+
+# load tidyverse package for data cleaning
+library(tidyverse)
+
+# load neuralnet package for neural network implementation
+library(nnet)
+
+# for data partitoning
+library(caret)
+
+# Load the keras package
+library(keras) 
+
+# Load the tensorflow package
+library(tensorflow) 
+```
+
+
+## Load Zoo dataset from mlbench pacjage
+```{r}
+# importing the Zoo dataset from mlbench library
+data(Zoo, package = "mlbench")
+```
+
+
+```{r}
+# create zoo dataframe from Zoo dataset
+zoo <- as.data.frame(Zoo)
+
+# display the first 6 rows of Zoo dataset
+head(zoo)
+```
+
+## Perfom Data Analysis
+```{r}
+# find out the summary of zoo dataframe
+summary(zoo)
+```
+
+
+```{r}
+# check structure of zoo dataframe
+str(zoo)
+```
+
+## Zoo Data Partiotning to get test and train sets
+```{r}
+# Lets create a list of 70% of the data as training set and let the remaining 30% as test set. Will use the test set for our model evalution and train for model training
+
+#lets set seed value for reproducibility
+set.seed(100) 
+
+splitIndex <- createDataPartition(zoo$type, p = 0.7, list = FALSE)
+
+#train_data object stores the training data
+train_data <- zoo[ splitIndex,] 
+
+#test_data object stores the test data
+test_data <- zoo[-splitIndex,] 
+```
+
+
+## Train the Neural Network model
+```{r}
+
+# In this case, we are train the neural network model using training dataset 
+model <- nnet(type ~ ., data = train_data, size = 10, decay = 5e-4, maxit = 200)
+```
+
+## Model Evaluation
+### Model predictions using test partition
+```{r}
+# First predict using the test dataset partition 
+predicted_labels <- predict(model, test_data[,-17]) 
+
+# display the predicted_labels
+predicted_labels
+```
+
+
+###  Find out the Model Accuracy
+
+```{r}
+
+# Generate the confusion matrix
+confusion_matrix <- table(test_data$type) 
+
+# Calculate the accuracy of the model
+accuracy <- sum(diag(confusion_matrix))/sum(confusion_matrix)
+
+# display the accuracy
+print(accuracy) 
+
+# Output: Accuracy is 1 this is the maximun value to be attained thus means that our model is perfect/ is fit for prediction of this dataset
+```
+

@@ -1,0 +1,269 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+# Classification: Another way
+
+## The Zoo Dataset
+```{r}
+# This line imports the Zoo data from the mlbench package
+data(Zoo, package="mlbench")
+# This line displays the first 6 rows of the Zoo data
+head(Zoo)
+```
+
+
+```{r}
+# Load the tidyverse library
+library(tidyverse)
+
+# Create a tibble from the Zoo dataframe
+as_tibble(Zoo, rownames = "animal")
+```
+
+
+```{r}
+#Modifies the Zoo data frame so that logical values become factors with levels TRUE and FALSE and character values become factors
+Zoo <- Zoo %>%
+  modify_if(is.logical, factor, levels = c(TRUE, FALSE)) %>%
+  modify_if(is.character, factor)
+
+#Shows a summary of the modified Zoo data frame
+summary(Zoo)
+```
+
+
+##  1. Decision Trees
+
+```{r}
+# Load the rpart library
+library(rpart)
+```
+
+
+```{r}
+# Create a tree_default object using the rpart function from the Zoo dataset
+tree_default <- Zoo %>% rpart(type ~ ., data = .)
+
+# Print the tree_default object
+tree_default
+```
+
+
+```{r}
+# Load the rpart.plot library
+library(rpart.plot)
+
+# Plot the tree_default object using the rpart.plot library, with extra parameters set to 2
+rpart.plot(tree_default, extra = 2)
+```
+
+
+```{r}
+# Create a decision tree model, using the "type" column as the response variable and all other columns as the predictors
+tree_full <- Zoo %>%
+   # Use rpart to fit the decision tree model, with a minimum split of 2 and no cost complexity pruning
+  rpart(type ~., data = ., control = rpart.control(minsplit = 2, cp = 0))
+
+# Plot the tree with 7 colors for the boxes
+rpart.plot(tree_full, extra = 2, roundint=FALSE,
+  box.palette = list("Gy", "Gn", "Bu", "Bn", "Or", "Rd", "Pu"))
+```
+
+
+
+##  2. K-Nearest Neighbors
+```{r}
+
+# This line loads the caret library
+library(caret)
+# This line sets the seed for reproducibility
+set.seed(0)
+# This line splits the Zoo data into a training and test set
+splitIndex <- createDataPartition(Zoo$type, p = 0.75, list = FALSE)
+training <- Zoo[ splitIndex,]
+testing <- Zoo[-splitIndex,]
+# This line builds the K-Nearest Neighbors model
+model <- train(type ~ ., data = training, method = "knn", tuneLength = 15)
+# This line displays the results of the K-Nearest Neighbors model
+model
+```
+
+
+
+```{r}
+
+# This line uses the K-Nearest Neighbors model to predict the type of animal in the test set
+predictions <- predict(model, newdata = testing)
+# This line displays the accuracy of the predictions
+confusionMatrix(predictions, testing$type)
+```
+
+
+## 3. SVM- Support Vector Machine
+```{r}
+
+# Load the e1071 package to use for SVM
+library(e1071)
+# Build the model
+model <- svm(hair ~ ., data=Zoo)
+# Print the model
+print(model)
+# View the model summary
+summary(model)
+# Predict using the model
+predicted_zoo_class <- predict(model, Zoo[,-17])
+# View the predicted classes
+predicted_zoo_class
+```
+
+
+## 4. Neural Networks
+```{r}
+# This line loads the caret library
+library(caret)
+# This line sets the seed for reproducibility
+set.seed(0)
+# This line splits the Zoo data into a training and test set
+splitIndex <- createDataPartition(Zoo$type, p = 0.75, list = FALSE)
+training <- Zoo[ splitIndex,]
+testing <- Zoo[-splitIndex,]
+# This line builds the neural network model
+model <- train(type ~ ., data = training, method = "nnet", tuneLength = 15)
+# This line displays the results of the neural network model
+#model
+```
+
+
+```{r}
+# This line uses the neural network model to predict the type of animal in the test set
+predictions <- predict(model, newdata = testing)
+# This line displays the accuracy of the predictions
+confusionMatrix(predictions, testing$type)
+```
+
+## The Iris Dataset
+
+```{r}
+
+# This line imports the Iris data from the mlbench package
+data("iris", package="mlbench")
+# This line displays the first 6 rows of the Iris data
+head(iris)
+```
+
+
+```{r}
+# This line creates a training set from the Iris data 
+# by randomly selecting 75% of the data
+set.seed(123)
+trainIndex <- sample(1:nrow(iris), 0.75*nrow(iris))
+trainData <- iris[trainIndex,]
+
+# This line creates a test set from the Iris data 
+# by selecting the remaining 25% of the data
+testData  <- iris[-trainIndex,]
+```
+
+
+
+## 1. Decision tree
+```{r}
+# This line loads the rpart package
+library(rpart)
+
+# This line fits a Decision Tree model to the training data
+model <- rpart(Species ~ ., data = trainData)
+
+# This line displays the model
+model
+
+# This line displays the predicted species for the test data
+predicted <- predict(model, testData[,-5], type="class")
+predicted
+
+```
+
+
+```{r}
+# Load the rpart.plot library
+library(rpart.plot)
+
+# Plot the tree_default object using the rpart.plot library, with extra parameters set to 2
+rpart.plot(tree_default, extra = 2)
+```
+
+
+
+```{r}
+# This line creates a confusion matrix for the model
+confusionMatrix <- table(testData[,5], predicted)
+confusionMatrix
+```
+
+
+```{r}
+# This line creates a confusion matrix for the model
+confusionMatrix <- table(testData[,5], predicted)
+confusionMatrix
+```
+
+
+
+## 2. K-Nearest Neighbours
+```{r}
+# This line installs the class package
+install.packages("class")
+
+# This line loads the class package
+library(class)
+
+# This line fits a K-Nearest Neighbor model to the training data
+model <- knn(trainData[,-5], testData[,-5], trainData[,5], k=3)
+
+# This line displays the predicted species for the test data
+model
+```
+
+
+```{r}
+# This line creates a confusion matrix for the model
+confusionMatrix <- table(testData[,5], model)
+confusionMatrix
+```
+
+
+## 3. SVM-Support Vector Machine
+```{r}
+# This line loads the e1071 package
+library(e1071)
+
+# This line fits a Support Vector Machine model to the training data
+model <- svm(Species ~ ., data = trainData, type = "C", kernel = "linear")
+
+# This line displays the model
+model
+
+# This line displays the predicted species for the test data
+predicted <- predict(model, testData[,-5])
+predicted
+
+```
+
+
+
+```{r}
+library(dplyr)
+# Create a tree_default object using the rpart function from the Zoo dataset
+tree_default <- iris %>% rpart(Species ~ ., data = .)
+
+# Print the tree_default object
+tree_default
+```
+
+
+
+
+

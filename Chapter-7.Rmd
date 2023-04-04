@@ -1,0 +1,1029 @@
+---
+title: "7 Clustering Analysis"
+name: 'ravan'
+course: 'Data Mining for Data Science and Analytics'
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+
+# 7.1 Data Preparation
+```{r}
+# this line of code imports the tidyverse library
+library(tidyverse)
+```
+
+
+```{r}
+# the code line loads the ruspini dataset from the cluster package
+data(ruspini, package = "cluster")
+```
+
+
+```{r}
+ruspini <- 
+  as_tibble(ruspini)%>% # converts the ruspini dataset and stores into a tibble object
+sample_frac() # randomly samples rows from the tibble object with equal probability
+ruspini
+```
+
+## 7.1.1 Data cleaning
+```{r}
+# the code line plots a graph of the Ruspini dataset with points
+ggplot(ruspini, aes(x = x, y = y)) + geom_point()
+```
+
+
+```{r}
+# displays the summary of ruspini dataset
+summary(ruspini)
+```
+
+
+## 7.1.2 Scale data
+```{r}
+## I use this till tidyverse implements a scale function
+#  scale all numeric columns in a dataset
+scale_numeric <- function(x) x %>% mutate_if(is.numeric, function(y) as.vector(scale(y)))
+
+# This line applies the scale_numeric function created above to the ruspini dataset 
+ruspini_scaled <- ruspini %>% scale_numeric()
+
+# displays the summary of ruspini_scaled dataset
+summary(ruspini_scaled)
+```
+
+
+# 7.2 Clustering methods
+## 7.2.1 k-means Clustering
+```{r}
+# # This line of code uses the kmeans function to cluster the data stored in the ruspini_scaled variable into 4 separate clusters. The nstart parameter specifies that the algorithm should be run 10 times to find the best solution.
+km <- kmeans(ruspini_scaled, centers = 4, nstart = 10)
+
+km
+```
+
+
+```{r}
+# This line adds the km$cluster vector to the ruspini_scaled data frame as a new column
+ruspini_clustered <- ruspini_scaled %>% add_column(cluster = factor(km$cluster))
+ruspini_clustered
+```
+
+
+```{r}
+#This code is used to create a basic scatterplot that displays the data from the ruspini_clustered dataset.
+#It is displaying the x and y variables from the dataset and color coding the points based on the cluster variable.
+ggplot(ruspini_clustered, aes(x = x, y = y, color = cluster)) + geom_point()
+```
+
+
+```{r}
+# The code creates a tibble object containing the centroids of the k-means clustering model "km"
+centroids <- as_tibble(km$centers, rownames = "cluster")
+centroids
+```
+
+
+```{r}
+# This line of code uses the ggplot2 package to plot a graph with the data from the 'ruspini_clustered' and 'centroids' datasets. 
+# The x and y coordinates of each data point are specified, and the color of each data point is determined by the cluster it is assigned to. 
+# The geom_point() function is used to create points for each data point, and the shape and size of the points for the centroids is specified.
+
+ggplot(ruspini_clustered, aes(x = x, y = y, color = cluster)) + geom_point() +
+  geom_point(data = centroids, aes(x = x, y = y, color = cluster), shape = 3, size = 10)
+```
+
+
+```{r}
+#load the library required to use the fviz_cluster() function
+library(factoextra)
+
+#visualize the results of clustering of km on the scaled ruspini data, with centroids, repel overlapping points and ellipse.type set to normal
+fviz_cluster(km, data = ruspini_scaled, centroids = TRUE, repel = TRUE, ellipse.type = "norm")
+```
+
+
+## 7.2.1.1.1 Cluster Profiles
+```{r}
+# This line of code uses the ggplo2t to plot a barplot of the centroid values of the two features (in this case x and y) versus their respective clusters 
+ggplot(pivot_longer(centroids, cols = c(x, y), names_to = "feature"),
+  aes(x = value, y = feature, fill = cluster)) +
+  geom_bar(stat = "identity") +
+  facet_grid(rows = vars(cluster))
+```
+
+
+
+## 7.2.1.1.2 Extract a single cluster
+```{r}
+# the line of code filters the ruspini_clustered dataset for cluster 1 
+cluster1 <- ruspini_clustered %>% filter(cluster == 1)
+
+# print cluster1
+cluster1
+```
+
+
+```{r}
+# summarizes the cluster 1 set
+summary(cluster1)
+```
+
+
+```{r}
+# the line of code plots a ggplot object with cluster1 data and specify x and y values
+ggplot(cluster1, aes(x = x, y = y)) +
+  geom_point() + # this line add points to the plot object
+  coord_cartesian(xlim = c(-2, 2), ylim = c(-2, 2)) # this  line sets the limits for the cartesian coordinates
+```
+
+
+```{r}
+# kmeans: This calls the kmeans function using the ruspini_scaled data and 8 centers
+# fviz_cluster: This creates a cluster visualisation of the kmeans model using ruspini_scaled data with centroids, points and a normal ellipse type
+fviz_cluster(kmeans(ruspini_scaled, centers = 8), data = ruspini_scaled,
+  centroids = TRUE,  geom = "point", ellipse.type = "norm")
+```
+
+
+## 7.2.2 Hierarchical Clustering
+```{r}
+#This line of code will calculate the Euclidean distance between each pair of points in the ruspini_scaled data set and store the result in a matrix called d
+d <- dist(ruspini_scaled)
+```
+
+
+```{r}
+#This line of code will use hierarchical clustering to cluster the points in the ruspini_d dataset using the complete linkage method and store the result in a matrix called hc. The plot command then plots the result of the clustering.
+hc <- hclust(d, method = "complete")
+
+# visualize
+plot(hc)
+```
+
+
+```{r}
+#This line of code will visualize the hierarchical clustering result stored in hc with four clusters and store the result in a matrix called fviz_dend.
+fviz_dend(hc, k = 4)
+```
+
+
+```{r}
+#This line of code will cut the hierarchical clustering result stored in hc into four clusters and store the result in a matrix called clusters. The cluster_complete command then adds a column to the ruspini_scaled dataset that contains the cluster assignment for each point.
+
+clusters <- cutree(hc, k = 4)
+cluster_complete <- ruspini_scaled %>%
+  add_column(cluster = factor(clusters))
+cluster_complete
+```
+
+
+```{r}
+#This line of code creates a plot using the cluster_complete dataset with x and y axis, and assigns the color to the points according to the cluster.
+ggplot(cluster_complete, aes(x, y, color = cluster)) +
+  geom_point()
+```
+
+
+```{r}
+# This line of code generates a ggplot object that visualizes the clusters formed by k-means clustering.
+fviz_cluster(list(data = ruspini_scaled, cluster = cutree(hc, k = 8)), geom = "point")
+```
+
+
+
+```{r}
+#This line of code clusters the data based on the single method of clustering
+hc_single <- hclust(d, method = "single")
+
+#This code produces a visual representation of the clusters created by the single method
+fviz_dend(hc_single, k = 4)
+```
+
+
+```{r}
+# Plot the data, with points colored by the cluster label
+fviz_cluster(list(data = ruspini_scaled, cluster = cutree(hc_single, k = 4)), geom = "point")
+```
+
+## 7.2.3 Density-based clustering with DBSCAN
+```{r}
+# load dbscan library
+library(dbscan)
+```
+
+
+```{r}
+
+# This code is plotting a kNN distance plot for the Ruspini dataset (which has already been scaled).
+# The k value is set to 3 and a red line is added at a y-value of 0.32
+kNNdistplot(ruspini_scaled, k = 3)
+abline(h = .32, col = "red")
+```
+
+
+```{r}
+#This line of code creates a dbscan object using the ruspini_scaled data and sets the epsilon value to 0.32 and the minPts value to 4
+db <- dbscan(ruspini_scaled, eps = .32, minPts = 4)
+
+#This line of code displays the dbscan object
+db
+```
+
+
+```{r}
+#This line of code displays the dbscan object structure
+str(db)
+```
+
+
+```{r}
+#This line of code creates a ggplot from the ruspini_scaled data, adding a column for the cluster values from the dbscan object and setting the x and y axes to the respective variables from the dataset and the color to the cluster value.
+ggplot(ruspini_scaled %>% add_column(cluster = factor(db$cluster)),
+  aes(x, y, color = cluster)) + geom_point()
+```
+
+
+```{r}
+#This line of code creates a visualization of the clusters from the dbscan object using the fviz_cluster function and the ruspini_scaled data.
+fviz_cluster(db, ruspini_scaled, geom = "point")
+```
+
+
+##7.2.4 Partitioning Around Medoids (PAM)
+```{r}
+# loads the cluster library
+library(cluster)
+```
+
+
+```{r}
+# calculates the euclidean distance and store results in d object
+d <- dist(ruspini_scaled)
+
+# prints the d results
+str(d)
+```
+
+
+```{r}
+# pam is a function used for clustering data in R
+# pam takes two arguments: the data (d), and the number of clusters (k)
+# this assigns the output of the pam function to the variable p, with the data d and 4 clusters
+p <- pam(d, k = 4)
+
+# prints the p results
+p
+```
+
+
+```{r}
+ruspini_clustered <- ruspini_scaled %>% add_column(cluster = factor(p$cluster))
+
+# This code obtains the medoid observations for each cluster.
+medoids <- as_tibble(ruspini_scaled[p$medoids, ], rownames = "cluster")
+
+# prints the medoids results
+medoids
+```
+
+
+```{r}
+# This code creates a graph of the ruspini_clustered data with points, the points are coloured by the cluster column
+ggplot(ruspini_clustered, aes(x = x, y = y, color = cluster)) + geom_point() +
+  # This code adds the medoids to the graph, making them appear as triangles and larger than the other points
+  geom_point(data = medoids, aes(x = x, y = y, color = cluster), shape = 3, size = 10)
+```
+
+
+```{r}
+## __Note:__ `fviz_cluster` needs the original data.
+#Use the "fviz_cluster" function to  plot the clustering results
+fviz_cluster(c(p, list(data = ruspini_scaled)), geom = "point", ellipse.type = "norm")
+```
+
+
+## 7.2.5 Gaussian Mixture Models
+```{r}
+# Load the mclust library
+library(mclust)
+```
+
+
+```{r}
+#This line of code fits a Gaussian Mixture Model to the ruspini_scaled data using Mclust
+m <- Mclust(ruspini_scaled)
+
+# summarizes the m object
+summary(m)
+```
+
+
+```{r}
+#This line plots a graph of the classification of data points in the fitted Gaussian Mixture Model
+plot(m, what = "classification")
+```
+
+
+```{r}
+#This line fits a Gaussian Mixture Model to the ruspini_scaled data using Mclust with four components
+m <- Mclust(ruspini_scaled, G=4)
+
+# summarizes the m object
+summary(m)
+```
+
+
+```{r}
+#This line plots a graph of the classification of data points in the fitted Gaussian Mixture Model
+plot(m, what = "classification")
+```
+
+
+## 7.2.6 Spectral clustering
+```{r}
+# loads the kernlab library
+library("kernlab")
+```
+
+
+```{r}
+# This line creates a cluster specification object based on the ruspini_scaled matrix, with 4 clusters
+cluster_spec <- specc(as.matrix(ruspini_scaled), centers = 4)
+
+# displays the cluster_spec object
+cluster_spec
+```
+
+
+```{r}
+# This code creates a ggplot object with the data from the 'ruspini_scaled' dataframe, adding a column 'cluster' that holds the factor of the 'cluster_spec' variable. The x and y axes have been mapped to the x and y variables, and the color has been mapped to the cluster variable.
+
+ggplot(ruspini_scaled %>% add_column(cluster = factor(cluster_spec)),
+  aes(x, y, color = cluster)) + geom_point()
+```
+
+
+
+## 7.2.7 Fuzzy C-Means Clustering
+```{r}
+# Load the e1071 library
+library(e1071)
+
+# Run the cmeans algorithm on the ruspini_scaled dataset with 4 centers
+cluster_cmeans <- cmeans(as.matrix(ruspini_scaled), centers = 4)
+
+# View the results of the cmeans algorithm
+cluster_cmeans
+```
+
+
+```{r}
+# Load the scatterpie library
+library(scatterpie)
+
+# Create a plot of the clustered data
+ggplot()  +
+  geom_scatterpie(data = cbind(ruspini_scaled, cluster_cmeans$membership),
+    aes(x = x, y = y), cols = colnames(cluster_cmeans$membership), legend_name = "Membership") + coord_equal()
+```
+
+
+# 7.3 Internal Cluster Validation
+## 7.3.1 Compare the Clustering Quality
+```{r}
+##library(fpc)
+# This line calls the cluster.stats function from the fpc package and passes in two arguments - the data set (d) and the cluster assignments from the kmeans function (km$cluster).
+# This function will calculate various summary statistics for each cluster.
+fpc::cluster.stats(d, km$cluster)
+```
+
+
+```{r}
+
+# This code creates a list of three elements, each element containing the results of the cluster.stats function applied to the data d and the outputs of three clustering algorithms (km, hc_compl, hc_single). The output of the cluster.stats function is a table that is subsetted to only include the within.cluster.ss and avg.silwidth columns.
+
+sapply(
+  list(
+    km = km$cluster,
+    hc_compl = cutree(hc, k = 4),
+    hc_single = cutree(hc_single, k = 4)
+  ),
+  FUN = function(x)
+    fpc::cluster.stats(d, x))[c("within.cluster.ss", "avg.silwidth"), ]
+```
+
+
+## 7.3.2 Silhouette plot
+```{r}
+# load the cluster library
+library(cluster)
+
+# calculates and plots the silhouette values for the clusters
+plot(silhouette(km$cluster, d))
+```
+
+
+```{r}
+# Plot a graph showing the silhouette of the clusters found by the k-means algorithm using the data in 'd'
+fviz_silhouette(silhouette(km$cluster, d))
+```
+
+
+## 7.3.3 Find Optimal Number of Clusters for k-means
+```{r}
+# This code line creates a scatter plot using the variables 'x' and 'y' from the 'ruspini_scaled' dataset and plots the data as points.
+ggplot(ruspini_scaled, aes(x, y)) + geom_point()
+```
+
+
+```{r}
+## We will use different methods and try 1-10 clusters.
+# Sets a seed value of 1234
+set.seed(1234)
+
+# Creates a vector that holds the values 2 to 10
+ks <- 2:10
+```
+
+
+## 7.3.3.1 Elbow Method: Within-Cluster Sum of Squares
+```{r}
+
+#Apply a function to each element of the vector "ks" and store the results in "WCSS"
+WCSS <- sapply(ks, FUN = function(k) {
+  #Run k-means clustering with k clusters and store the total within-cluster sum of squares
+  kmeans(ruspini_scaled, centers = k, nstart = 5)$tot.withinss
+  })
+
+#Create a visualization of the results
+ggplot(as_tibble(ks, WCSS), aes(ks, WCSS)) + 
+  #Plot a line of the results
+  geom_line() +
+  #Plot a vertical line at k = 4
+  geom_vline(xintercept = 4, color = "red", linetype = 2)
+```
+
+
+## 7.3.3.2 Average Silhouette Width
+```{r}
+#Use the kmeans function to create clusters from the ruspini_scaled data
+#using each value of k from the ks vector and determine the average silhouette width
+ASW <- sapply(ks, FUN=function(k) {
+  fpc::cluster.stats(d, kmeans(ruspini_scaled, centers=k, nstart = 5)$cluster)$avg.silwidth
+  })
+
+#Identify the k value that yields the highest average silhouette width
+best_k <- ks[which.max(ASW)]
+best_k
+```
+
+
+```{r}
+# Create a ggplot object using the ks and ASW columns from the ks data frame 
+ggplot(as_tibble(ks, ASW), aes(ks, ASW)) + 
+
+# Plot the ks and ASW data as a line
+geom_line() +
+
+# Add a vertical line at the best_k value in the plot
+geom_vline(xintercept = best_k, color = "red", linetype = 2)
+```
+
+
+## 7.3.3.3 Dunn Index
+```{r}
+
+# Calculate the Dunn Index for each value of k
+DI <- sapply(ks, FUN=function(k) {
+  # Calculate the cluster stats with kmeans function using ruspini_scaled data with k centers and 5 initial starts
+  fpc::cluster.stats(d, kmeans(ruspini_scaled, centers=k, nstart=5)$cluster)$dunn
+})
+
+# Find the best value of k
+best_k <- ks[which.max(DI)]
+
+# Plot the Dunn Index values with k values
+ggplot(as_tibble(ks, DI), aes(ks, DI)) + geom_line() +
+  # Add a vertical line to indicate the best value of k
+  geom_vline(xintercept = best_k, color = "red", linetype = 2)
+```
+
+
+
+## 7.3.3.4 Gap Statistic
+```{r}
+#load the cluster library
+library(cluster) 
+
+# Create an object (k) that stores the results of the clusGap function applied to the ruspini_scaled dataset, with 10 random starts, and a maximum of 10 clusters.
+k <- clusGap(ruspini_scaled, FUN = kmeans,  nstart = 10, K.max = 10)
+
+# Display the results of the function.
+k
+```
+
+
+```{r}
+# Plot the results of the clusGap function.
+plot(k)
+```
+
+
+## 7.3.4 Visualizing the Distance Matrix
+```{r}
+# Create a ggplot object with the data from the ruspini_scaled dataset, using x and y as the coordinates and the "km$cluster" variable as the color
+ggplot(ruspini_scaled, aes(x, y, color = factor(km$cluster))) + geom_point()
+```
+
+
+```{r}
+# Calculate the Euclidean distance between each pair of observations in the 'ruspini_scaled' dataset and assign the result to the 'd' object.
+d <- dist(ruspini_scaled)
+
+# View the first 5x5 subset of the 'd' object.
+as.matrix(d)[1:5, 1:5]
+```
+
+
+```{r}
+# # load the seriation library
+library(seriation)
+
+# # This line of code is plotting a matrix and coloring it in a range of blues and reds
+pimage(d, col = bluered(100))
+```
+
+
+```{r}
+pimage(d, order=order(km$cluster), col = bluered(100))
+```
+
+
+```{r}
+#plot the data, with the clusters from km labeled
+dissplot(d, labels = km$cluster, options=list(main="k-means with k=4"))
+```
+
+
+```{r}
+
+# Plot the distances to visualize the clusters
+dissplot(d, labels = kmeans(ruspini_scaled, centers = 3)$cluster, col = bluered(100))
+```
+
+
+```{r}
+
+# Plot the distances to visualize the clusters
+dissplot(d, labels = kmeans(ruspini_scaled, centers = 9)$cluster, col = bluered(100))
+```
+
+
+```{r}
+# This code creates a visual representation of a distribution
+fviz_dist(d)
+```
+
+
+## 7.4 External Cluster Validation
+```{r}
+# load the mlbench library
+library(mlbench)
+
+#set seed as 1234
+set.seed(1234)  
+
+# create a data set of 500 shapes with sd1 and sd2
+shapes <- mlbench.smiley(n = 500, sd1 = 0.1, sd2 = 0.05) 
+
+#plot the data set
+plot(shapes) 
+```
+
+
+```{r}
+# Create a column named 'truth' in the 'shapes' dataframe and set the values as integers of the 'class' column
+truth <- as.integer(shapes$class)
+
+# Scale the 'x' column of the 'shapes' dataframe
+shapes <- scale(shapes$x)
+
+# Set the column names of the 'shapes' dataframe to 'x' and 'y'
+colnames(shapes) <- c("x", "y")
+
+# Convert the 'shapes' dataframe to a tibble
+shapes <- as_tibble(shapes)
+
+# Plot a scatterplot of the 'x' and 'y' columns in the 'shapes' dataframe
+ggplot(shapes, aes(x, y)) + geom_point()
+```
+
+
+
+```{r}
+#Generate a sequence of numbers from 2 to 20
+ks <- 2:20
+```
+
+
+```{r}
+# Create an object called "WCSS" that contains the total within-cluster sum of squares (WCSS) for each value of k
+WCSS <- sapply(ks, FUN = function(k) { 
+  kmeans(shapes, centers = k, nstart = 10)$tot.withinss
+})
+
+# Plot the WCSS for each value of k
+ggplot(as_tibble(ks, WCSS), aes(ks, WCSS)) + geom_line()
+```
+
+
+```{r}
+km <- kmeans(shapes, centers = 7, nstart = 10)
+
+
+#The code line is using the ggplot library to plot the data in the "shapes" data frame, with the x and y variables as the x and y axis, and the color of the points being determined by the "cluster" column. 
+ggplot(shapes %>% add_column(cluster = factor(km$cluster)), aes(x, y, color = cluster)) +
+  geom_point()
+```
+
+
+```{r}
+d <- dist(shapes)  # Calculate the distance between all pairs of shapes
+
+hc <- hclust(d, method = "single") # Perform agglomerative hierarchical clustering with single linkage
+```
+
+
+```{r}
+# Create a vector of average silhouette widths for each k value
+ASW <- sapply(ks, FUN = function(k) {
+  fpc::cluster.stats(d, cutree(hc, k))$avg.silwidth
+})
+
+# Create a plot of average silhouette widths by k value
+ggplot(as_tibble(ks, ASW), aes(ks, ASW)) + geom_line()
+```
+
+
+```{r}
+#Cut the hierarchical clustering into 4 clusters
+hc_4 <- cutree(hc, 4)
+
+#Create a ggplot object to visualize the data with the clusters indicated by different colors
+ggplot(shapes %>% add_column(cluster = factor(hc_4)), aes(x, y, color = cluster)) +
+  #   Adds point to the graph
+  geom_point()
+```
+
+
+```{r}
+#This function calculates the entropy of a given clustering
+calc_entropy <- function(cluster, truth) {
+  #We create 2 factors to have the same levels in both cluster and truth
+  k <- max(cluster, truth)
+  cluster <- factor(cluster, levels = 1:k)
+  truth <- factor(truth, levels = 1:k)
+  #We calculate the weight of each cluster
+  w <- table(cluster)/length(cluster)
+
+  #We calculate the number of elements in each cluster
+  cnts <- sapply(split(truth, cluster), table)
+  #We calculate the probability of each cluster
+  p <- sweep(cnts, 1, rowSums(cnts), "/")
+  #We replace all the NAs with 0
+  p[is.nan(p)] <- 0
+  #We calculate the entropy
+  e <- -p * log(p, 2)
+
+  #Finally, we calculate the final entropy by multiplying the weight of each cluster by the entropy
+  sum(w * rowSums(e, na.rm = TRUE))
+}
+
+#This function calculates the purity of a given clustering
+purity <- function(cluster, truth) {
+  #We create 2 factors to have the same levels in both cluster and truth
+  k <- max(cluster, truth)
+  cluster <- factor(cluster, levels = 1:k)
+  truth <- factor(truth, levels = 1:k)
+  #We calculate the weight of each cluster
+  w <- table(cluster)/length(cluster)
+
+  #We calculate the number of elements in each cluster
+  cnts <- sapply(split(truth, cluster), table)
+  #We calculate the probability of each cluster
+  p <- sweep(cnts, 1, rowSums(cnts), "/")
+  #We replace all the NAs with 0
+  p[is.nan(p)] <- 0
+
+  #Finally, we calculate the final purity by multiplying the weight of each cluster by the maximum probability of each cluster
+  sum(w * apply(p, 1, max))
+}
+```
+
+
+```{r}
+
+#sample random numbers from 1 to 4 and 6 and assign to variables
+random_4 <- sample(1:4, nrow(shapes), replace = TRUE)
+random_6 <- sample(1:6, nrow(shapes), replace = TRUE)
+
+#bind the results of the four different clustering techniques into the same dataframe
+r <- rbind(
+  kmeans_7 = c(
+    unlist(fpc::cluster.stats(d, km$cluster, truth, compareonly = TRUE)),
+    entropy = entropy(km$cluster, truth),
+    purity = purity(km$cluster, truth)
+    ),
+  hc_4 = c(
+    unlist(fpc::cluster.stats(d, hc_4, truth, compareonly = TRUE)),
+    entropy = entropy(hc_4, truth),
+    purity = purity(hc_4, truth)
+    ),
+  random_4 = c(
+    unlist(fpc::cluster.stats(d, random_4, truth, compareonly = TRUE)),
+    entropy = entropy(random_4, truth),
+    purity = purity(random_4, truth)
+    ),
+  random_6 = c(
+    unlist(fpc::cluster.stats(d, random_6, truth, compareonly = TRUE)),
+    entropy = entropy(random_6, truth),
+    purity = purity(random_6, truth)
+    )
+  )
+#display the results
+r
+```
+
+
+
+# 7.5 Advanced Data Preparation for Clustering
+## 7.5.1 Outlier Removal
+```{r}
+# load dbscan library
+library(dbscan)
+
+# # Add a case to the ruspini_scaled dataframe with x=10 and y=0
+ruspini_scaled_outlier <- ruspini_scaled %>% add_case(x=10,y=0)
+```
+
+## 7.5.1.1 Visual inspection of the data
+```{r}
+# load GGally library
+library("GGally")
+
+# # Create a GGally pairs plot of the ruspini_scaled_outlier dataset
+ggpairs(ruspini_scaled_outlier, progress = FALSE)
+```
+
+
+```{r}
+# Add a column to the dataset 'ruspini_scaled_outlier' called 'cluster' and assign it the results of the kmeans function, with 4 centers and nstart set to 10
+ruspini_scaled_outlier_km <- kmeans(ruspini_scaled_outlier, centers = 4, nstart = 10)
+
+# Add the results of the kmeans function to the dataset 'ruspini_scaled_outlier' as a new column called 'cluster'
+ruspini_scaled_outlier_km <- ruspini_scaled_outlier%>%
+  add_column(cluster = factor(km$cluster))
+
+# Create a tibble of the kmeans centroids and assign the row names as 'cluster'
+centroids <- as_tibble(km$centers, rownames = "cluster")
+
+# Create a ggplot using the dataset 'ruspini_scaled_outlier_km', setting the x and y values to the columns 'x' and 'y' respectively and colouring the points according to the cluster column
+ggplot(ruspini_scaled_outlier_km, aes(x = x, y = y, color = cluster)) + geom_point() +
+  geom_point(data = centroids, aes(x = x, y = y, color = cluster), shape = 3, size = 10)
+```
+
+
+## 7.5.1.2 Local Outlier Factor (LOF)
+```{r}
+# This line uses the lof function to create an object, lof, which assigns Local Outlier Factor (LOF) scores to each observation in the ruspini_scaled_outlier dataset, using a minimum of 10 points.
+lof <- lof(ruspini_scaled_outlier, minPts= 10)
+
+# display the results
+lof
+```
+
+
+```{r}
+#Plot a graph of the ruspini_scaled_outlier dataframe with x and y values, and color coded by lof
+ggplot(ruspini_scaled_outlier, aes(x, y, color = lof)) +
+    geom_point() + scale_color_gradient(low = "gray", high = "red") +
+    #Add the lof column to the dataframe
+    mutate(lof = lof)
+```
+
+
+```{r}
+#Plots a line graph of the sorted lof values with a horizontal red line at y intercept = 1
+ggplot(tibble(index = seq_len(length(lof)), lof = sort(lof)), aes(index, lof)) +
+  geom_line() +
+  geom_hline(yintercept = 1, color = "red", linetype = 2)
+```
+
+
+```{r}
+## This code creates a scatterplot using the ggplot() function. The plot is based on the data stored in the ruspini_scaled_outlier object and uses the x and y columns from the dataset. It also adds a new column, outlier, to the dataset and uses this to color the points in the plot. The geom_point() function is used to draw the points.
+ggplot(ruspini_scaled_outlier %>% add_column(outlier = lof >= 2), aes(x, y, color = outlier)) +
+  geom_point()
+```
+
+
+```{r}
+# Filter outliers from the ruspini_scaled data using the lof column
+ruspini_scaled_outliers <- ruspini_scaled %>% filter(lof < 2)
+
+# Create a K-means cluster model with 4 clusters and 10 random starts
+kmeans_model <- kmeans(ruspini_scaled_outliers, centers = 4, nstart = 10)
+
+# Add the cluster column to the data
+ruspini_scaled_outliers_clustered <- ruspini_scaled_outliers%>%
+  add_column(cluster = factor(kmeans_model$cluster))
+
+# Create a dataframe of the centroids
+centroids <- as_tibble(kmeans_model$centers, rownames = "cluster")
+
+# Create a scatterplot of the data with the centroids
+ggplot(ruspini_scaled_outliers_clustered, aes(x = x, y = y, color = cluster)) + geom_point() +
+  geom_point(data = centroids, aes(x = x, y = y, color = cluster), shape = 3, size = 10)
+```
+
+
+## 7.5.2 Clustering Tendency
+```{r}
+
+library(mlbench)  # Load the mlbench package
+
+shapes <- mlbench.smiley(n = 500, sd1 = 0.1, sd2 = 0.05)$x  # Generate 500 random shapes from the mlbench package, setting the standard deviations to 0.1 and 0.05
+
+colnames(shapes) <- c("x", "y")  # Name the columns of the generated shapes 'x' and 'y'
+
+shapes <- as_tibble(shapes)  # Convert the shapes to a tibble
+```
+
+
+## 7.5.2.1 Scatter plots
+```{r}
+
+#This code creates a plot using the ggplot2 package and the data from the "shapes" data frame. 
+ggplot(shapes, aes(x = x, y = y)) + geom_point()
+```
+
+
+## 7.5.2.2 Visual Analysis for Cluster Tendency Assessment (VAT)
+```{r}
+# load seriation library
+library(seriation)
+
+# Calculates the distance matrix of the scaled shapes data
+d_shapes <- dist(scale(shapes))
+
+
+# Plots the shapes based on the distance matrix in a blue to red color spectrum
+VAT(d_shapes, col = bluered(100))
+```
+
+
+```{r}
+# iVAT() creates a visual representation of the distance matrix using a blue-red diverging color scheme, and allows for interactive manipulation of the plot
+iVAT(d_shapes, col = bluered(100))
+```
+
+
+## 7.5.2.3 Hopkins statistic
+```{r}
+get_clust_tendency(shapes, n = 10)
+```
+
+
+## 7.5.2.4 Data Without Clustering Tendency
+```{r}
+# Create a tibble with two columns x and y
+data_random <- tibble(x = runif(500), y = runif(500))
+
+# Plot the data as a scatterplot with x and y as axes
+ggplot(data_random, aes(x, y)) + geom_point()
+```
+
+
+```{r}
+
+# dist() creates a distance matrix from a data frame
+d_random <- dist(data_random)
+
+
+# VAT() creates a visual representation of the distance matrix using a blue-red diverging color scheme
+VAT(d_random, col = bluered(100))
+```
+
+
+```{r}
+# iVAT() creates a visual representation of the distance matrix using a blue-red diverging color scheme, and allows for interactive manipulation of the plot
+iVAT(d_random, col = bluered(100))
+```
+
+
+```{r}
+# This code line gets the tendency of a given dataset, grouped by clusters, but does not display the results in a graph
+get_clust_tendency(data_random, n = 10, graph = FALSE)
+```
+
+
+## 7.5.2.5 k-means on Data Without Clustering Tendency
+```{r}
+# Create a km object using the kmeans() function with the data_random dataset and set the number of clusters to 4
+km <- kmeans(data_random, centers = 4)
+
+# Create a new data frame called random_clustered by adding a new column called "cluster" to the data_random dataset, with values from the km object
+random_clustered<- data_random %>% add_column(cluster = factor(km$cluster))
+
+# Create a ggplot object, with the random_clustered data frame, and set the x and y values to x and y, and the color to the cluster column
+ggplot(random_clustered, aes(x = x, y = y, color = cluster)) + geom_point()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
